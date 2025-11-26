@@ -1,0 +1,54 @@
+services:
+  # Legitimate Web Server
+  web-server:
+    build:
+      context: ./web-server
+      dockerfile: Dockerfile
+    container_name: legitimate-server
+    networks:
+      backend:
+        ipv4_address: 172.25.0.10
+    ports:
+      - "8082:80"
+    environment:
+      - SERVER_NAME=Legitimate Bank Server
+
+  # Attacker/MITM Container
+  attacker:
+    build:
+      context: ./attacker
+      dockerfile: Dockerfile
+    container_name: mitm-attacker
+    networks:
+      backend:
+        ipv4_address: 172.25.0.5
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    ports:
+      - "8889:8888"  # mitmproxy web interface
+    depends_on:
+      - web-server
+
+  # Client Container
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vulnerable-client
+    networks:
+      backend:
+        ipv4_address: 172.25.0.20
+    depends_on:
+      - web-server
+      - attacker
+    stdin_open: true
+    tty: true
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
